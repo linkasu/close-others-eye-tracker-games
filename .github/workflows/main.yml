@@ -2,6 +2,24 @@ name: Actions 😎
 
 on: push
 jobs:
+  license-scope:
+    name: Licensing publication guard
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      deploy: ${{ steps.scope.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Test licensing guard
+        run: python3 .github/scripts/licensing-deployment-guard.py --self-test
+      - id: scope
+        run: python3 .github/scripts/licensing-deployment-guard.py
+
   build:
     name: Build my project ✨
     runs-on: windows-2019
@@ -65,9 +83,10 @@ jobs:
           name: Installer
           path: build/linka.plays.setup.exe
   deploy:
+    if: ${{ needs.license-scope.outputs.deploy == 'true' }}
     name: Deploy
     runs-on: ubuntu-20.04
-    needs: installer
+    needs: [installer, license-scope]
     steps:
       # Checkout
       - name: Checkout repository
